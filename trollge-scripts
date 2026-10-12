@@ -1,655 +1,395 @@
--- ╔══════════════════════════════════════════════════════════╗
--- ║       TROLLGE-INCIDENT-FIGHTS-REBORN — Keyify Access Loader v2             ║
--- ╚══════════════════════════════════════════════════════════╝
+-- SEMYON HUB V1.7 compact | Trollge Incident | Xeno
+local P=game:GetService("Players")
+local UIS=game:GetService("UserInputService")
+local RS=game:GetService("ReplicatedStorage")
+local VU=game:GetService("VirtualUser")
+local LP=P.LocalPlayer
+while not LP do task.wait(0.1) LP=P.LocalPlayer end
 
-local BASE_URL    = "https://keyify.lol"
-local GATEWAY_URL = "https://keyify.lol/api/source"
-local GAME_ID     = "trollge-incident-fights-reborn"
-local GAME_NAME   = "TROLLGE-INCIDENT-FIGHTS-REBORN"
-local VARIANT_ID  = ""
-
--- Legacy verification helpers below are kept only for compatibility with the
--- existing obfuscator. They are never called by the current server-side flow.
-local PLATOBOOST_SERVICE = 0
-local PLATOBOOST_SECRET  = ""
-
-local Players      = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UIS          = game:GetService("UserInputService")
-local LocalPlayer  = Players.LocalPlayer
-local PlayerGui    = LocalPlayer:WaitForChild("PlayerGui")
-
--------------------------------------------------------------------------------
--- Cryptography & JSON Utils for Platoboost
--------------------------------------------------------------------------------
-local a=2^32;local b=a-1;local function c(d,e)local f,g=0,1;while d~=0 or e~=0 do local h,i=d%2,e%2;local j=(h+i)%2;f=f+j*g;d=math.floor(d/2)e=math.floor(e/2)g=g*2 end;return f%a end
-local function k(d,e,l,...)local m;if e then d=d%a;e=e%a;m=c(d,e)if l then m=k(m,l,...)end;return m elseif d then return d%a else return 0 end end
-local function n(d,e,l,...)local m;if e then d=d%a;e=e%a;m=(d+e-c(d,e))/2;if l then m=n(m,l,...)end;return m elseif d then return d%a else return b end end
-local function o(p)return b-p end
-local function q(d,r)if r<0 then return d*2^(-r)%2^32 end;return math.floor(d%2^32/2^r)end
-local function s(p,r)if r>31 or r<-31 then return 0 end;return q(p%a,r)end
-local function lshift(d,r)if r<0 then return s(d,-r)end;return d*2^r%2^32 end
-local function t(p,r)p=p%a;r=r%32;local u=n(p,2^r-1)return s(p,r)+lshift(u,32-r)end
-local v={0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2}
-local function w(x)return string.gsub(x,".",function(l)return string.format("%02x",string.byte(l))end)end
-local function y(z,A)local x=""for B=1,A do local C=z%256;x=string.char(C)..x;z=(z-C)/256 end;return x end
-local function D(x,B)local A=0;for B=B,B+3 do A=A*256+string.byte(x,B)end;return A end
-local function E(F,G)local H=64-(G+9)%64;G=y(8*G,8)F=F.."\128"..string.rep("\0",H)..G;assert(#F%64==0)return F end
-local function I(J)J[1]=0x6a09e667;J[2]=0xbb67ae85;J[3]=0x3c6ef372;J[4]=0xa54ff53a;J[5]=0x510e527f;J[6]=0x9b05688c;J[7]=0x1f83d9ab;J[8]=0x5be0cd19;return J end
-local function K(F,B,J)local L={}for M=1,16 do L[M]=D(F,B+(M-1)*4)end;for M=17,64 do local N=L[M-15]local O=k(t(N,7),t(N,18),s(N,3))N=L[M-2]L[M]=(L[M-16]+O+L[M-7]+k(t(N,17),t(N,19),s(N,10)))%a end;local d,e,l,P,Q,R,S,T=J[1],J[2],J[3],J[4],J[5],J[6],J[7],J[8]for B=1,64 do local O=k(t(d,2),t(d,13),t(d,22))local U=k(n(d,e),n(d,l),n(e,l))local V=(O+U)%a;local W=k(t(Q,6),t(Q,11),t(Q,25))local X=k(n(Q,R),n(o(Q),S))local Y=(T+W+X+v[B]+L[B])%a;T=S;S=R;R=Q;Q=(P+Y)%a;P=l;l=e;e=d;d=(Y+V)%a end;J[1]=(J[1]+d)%a;J[2]=(J[2]+e)%a;J[3]=(J[3]+l)%a;J[4]=(J[4]+P)%a;J[5]=(J[5]+Q)%a;J[6]=(J[6]+R)%a;J[7]=(J[7]+S)%a;J[8]=(J[8]+T)%a end
-local function Z(F)F=E(F,#F)local J=I({})for B=1,#F,64 do K(F,B,J)end;return w(y(J[1],4)..y(J[2],4)..y(J[3],4)..y(J[4],4)..y(J[5],4)..y(J[6],4)..y(J[7],4)..y(J[8],4))end
-local e;local l={["\\"]="\\",["\""]="\"",["\b"]="b",["\f"]="f",["\n"]="n",["\r"]="r",["\t"]="t"}local P={["/"]="/"}for Q,R in pairs(l)do P[R]=Q end
-local S=function(T)return"\\"..(l[T]or string.format("u%04x",T:byte()))end
-local B=function(M)return"null"end
-local v_func=function(M,z)local _={}z=z or{}if z[M]then error("circular reference")end;z[M]=true;if rawget(M,1)~=nil or next(M)==nil then local A=0;for Q in pairs(M)do if type(Q)~="number"then error("invalid table: mixed or invalid key types")end;A=A+1 end;if A~=#M then error("invalid table: sparse array")end;for a0,R in ipairs(M)do table.insert(_,e(R,z))end;z[M]=nil;return"["..table.concat(_,",").."]"else for Q,R in pairs(M)do if type(Q)~="string"then error("invalid table: mixed or invalid key types")end;table.insert(_,e(Q,z)..":"..e(R,z))end;z[M]=nil;return"{"..table.concat(_,",").."}"end end
-local g=function(M)return'"'..M:gsub('[%z\1-\31\\"]',S)..'"'end
-local a1=function(M)if M~=M or M<=-math.huge or M>=math.huge then error("unexpected number value '"..tostring(M).."'")end;return string.format("%.14g",M)end
-local j={["nil"]=B,["table"]=v_func,["string"]=g,["number"]=a1,["boolean"]=tostring}
-e=function(M,z)local x=type(M)local a2=j[x]if a2 then return a2(M,z)end;error("unexpected type '"..x.."'")end
-local a3=function(M)return e(M)end
-local a4;local N=function(...)local _={}for a0=1,select("#",...)do _[select(a0,...)]=true end;return _ end
-local L=N(" ","\t","\r","\n")local p_map=N(" ","\t","\r","\n","]","}",",")local a5=N("\\","/",'"',"b","f","n","r","t","u")local m_map=N("true","false","null")local a6={["true"]=true,["false"]=false,["null"]=nil}
-local a7=function(a8,a9,aa,ab)for a0=a9,#a8 do if aa[a8:sub(a0,a0)]~=ab then return a0 end end;return#a8+1 end
-local ac=function(a8,a9,J)local ad=1;local ae=1;for a0=1,a9-1 do ae=ae+1;if a8:sub(a0,a0)=="\n"then ad=ad+1;ae=1 end end;error(string.format("%s at line %d col %d",J,ad,ae))end
-local af=function(A)local a2=math.floor;if A<=0x7f then return string.char(A)elseif A<=0x7ff then return string.char(a2(A/64)+192,A%64+128)elseif A<=0xffff then return string.char(a2(A/4096)+224,a2(A%4096/64)+128,A%64+128)elseif A<=0x10ffff then return string.char(a2(A/262144)+240,a2(A%262144/4096)+128,a2(A%4096/64)+128,A%64+128)end;error(string.format("invalid unicode codepoint '%x'",A))end
-local ag=function(ah)local ai=tonumber(ah:sub(1,4),16)local aj=tonumber(ah:sub(7,10),16)if aj then return af((ai-0xd800)*0x400+aj-0xdc00+0x10000)else return af(ai)end end
-local ak=function(a8,a0)local _=""local al=a0+1;local Q=al;while al<=#a8 do local am=a8:byte(al)if am<32 then ac(a8,al,"control character in string")elseif am==92 then _=_..a8:sub(Q,al-1)al=al+1;local T=a8:sub(al,al)if T=="u"then local an=a8:match("^[dD][89aAbB]%x%x\\u%x%x%x%x",al+1)or a8:match("^%x%x%x%x",al+1)or ac(a8,al-1,"invalid unicode escape in string")_=_..ag(an)al=al+#an else if not a5[T]then ac(a8,al-1,"invalid escape char '"..T.."' in string")end;_=_..P[T]end;Q=al+1 elseif am==34 then _=_..a8:sub(Q,al-1)return _,al+1 end;al=al+1 end;ac(a8,a0,"expected closing quote for string")end
-local ao=function(a8,a0)local am=a7(a8,a0,p_map)local ah=a8:sub(a0,am-1)local A=tonumber(ah)if not A then ac(a8,a0,"invalid number '"..ah.."'")end;return A,am end
-local ap=function(a8,a0)local am=a7(a8,a0,p_map)local aq=a8:sub(a0,am-1)if not m_map[aq]then ac(a8,a0,"invalid literal '"..aq.."'")end;return a6[aq],am end
-local ar=function(a8,a0)local _={}local A=1;a0=a0+1;while 1 do local am;a0=a7(a8,a0,L,true)if a8:sub(a0,a0)=="]"then a0=a0+1;break end;am,a0=a4(a8,a0)_[A]=am;A=A+1;a0=a7(a8,a0,L,true)local as=a8:sub(a0,a0)a0=a0+1;if as=="]"then break end;if as~=","then ac(a8,a0,"expected ']' or ','")end end;return _,a0 end
-local at=function(a8,a0)local _={}a0=a0+1;while 1 do local au,M;a0=a7(a8,a0,L,true)if a8:sub(a0,a0)=="}"then a0=a0+1;break end;if a8:sub(a0,a0)~='"'then ac(a8,a0,"expected string for key")end;au,a0=a4(a8,a0)a0=a7(a8,a0,L,true)if a8:sub(a0,a0)~=":"then ac(a8,a0,"expected ':' after key")end;a0=a7(a8,a0+1,L,true)M,a0=a4(a8,a0)_[au]=M;a0=a7(a8,a0,L,true)local as=a8:sub(a0,a0)a0=a0+1;if as=="}"then break end;if as~=","then ac(a8,a0,"expected '}' or ','")end end;return _,a0 end
-local av={['"']=ak,["0"]=ao,["1"]=ao,["2"]=ao,["3"]=ao,["4"]=ao,["5"]=ao,["6"]=ao,["7"]=ao,["8"]=ao,["9"]=ao,["-"]=ao,["t"]=ap,["f"]=ap,["n"]=ap,["["]=ar,["{"]=at}
-a4=function(a8,a9)local as=a8:sub(a9,a9)local a2=av[as]if a2 then return a2(a8,a9)end;ac(a8,a9,"unexpected character '"..as.."'")end
-local aw=function(a8)if type(a8)~="string"then error("expected argument of type string, got "..type(a8))end;local _,a9=a4(a8,a7(a8,1,L,true))a9=a7(a8,a9,L,true)if a9<=#a8 then ac(a8,a9,"trailing garbage")end;return _ end
-local lEncode, lDecode, lDigest = a3, aw, Z
-
--------------------------------------------------------------------------------
--- Platoboost SDK Драйвер
--------------------------------------------------------------------------------
-local fSetClipboard = setclipboard or toclipboard
-local fRequest = request or http_request or syn_request
-local fStringChar, fToString, fStringSub = string.char, tostring, string.sub
-local fOsTime, fMathRandom, fMathFloor = os.time, math.random, math.floor
-local fGetHwid = gethwid or function() return tostring(LocalPlayer.UserId) end
-
-local function urlEncode(value)
-    return tostring(value):gsub("([^%w%-_%.~])", function(char)
-        return string.format("%%%02X", string.byte(char))
-    end)
+local function fatal(m)
+ pcall(function()
+  local g=Instance.new("ScreenGui") g.Name="_SErr" g.ResetOnSpawn=false g.DisplayOrder=1000
+  g.Parent=LP:WaitForChild("PlayerGui",5)
+  local f=Instance.new("Frame") f.Size=UDim2.new(0,440,0,150) f.Position=UDim2.new(0.5,-220,0.5,-75)
+  f.BackgroundColor3=Color3.fromRGB(40,10,10) f.Parent=g
+  Instance.new("UICorner",f).CornerRadius=UDim.new(0,10)
+  local t=Instance.new("TextLabel") t.Size=UDim2.new(1,-20,1,-20) t.Position=UDim2.new(0,10,0,10)
+  t.BackgroundTransparency=1 t.TextWrapped=true t.Text="SEMYON HUB ERROR: "..tostring(m)
+  t.TextColor3=Color3.fromRGB(255,120,120) t.TextSize=13 t.Font=Enum.Font.Code t.Parent=f
+ end)
 end
 
-local function httpGet(url)
-    if fRequest then
-        local response = fRequest({ Url = url, Method = "GET" })
-        if response and response.StatusCode and response.StatusCode >= 200 and response.StatusCode < 300 then
-            return response.Body
-        end
-        if response and tostring(response.Body or ""):find("%[KeySys%] Access Denied") then
-            return response.Body
-        end
-        error("HTTP request failed: " .. tostring(response and response.StatusCode or "no response"))
-    end
-    return game:HttpGet(url, true)
-end
+local ok,err=pcall(function()
 
-local function executorName()
-    local detector = identifyexecutor or getexecutorname
-    if detector then
-        local ok, name = pcall(detector)
-        if ok and name then return tostring(name) end
-    end
-    return "Unknown"
-end
-
-local SESSION_ID = ""
-task.spawn(function()
-    local sessionUrl = BASE_URL .. "/api/session/start"
-        .. "?game_id=" .. urlEncode(GAME_ID)
-        .. "&game_name=" .. urlEncode(GAME_NAME)
-        .. "&hwid=" .. urlEncode(fGetHwid())
-        .. "&executor=" .. urlEncode(executorName())
-        .. "&username=" .. urlEncode(LocalPlayer.Name)
-        .. "&userId=" .. urlEncode(LocalPlayer.UserId)
-    local ok, result = pcall(function() return httpGet(sessionUrl) end)
-    if ok and result then
-        SESSION_ID = tostring(result):match("(SES%-%w[%w%-%_]*)") or ""
-    end
-end)
-
-local cachedLink, cachedTime = "", 0
-local host = "https://api.platoboost.net"
-
-local function cachePlatoboostLink()
-    if cachedTime + (10*60) < fOsTime() then
-        local response = fRequest({
-            Url = host .. "/public/start",
-            Method = "POST",
-            Body = lEncode({
-                service = PLATOBOOST_SERVICE,
-                identifier = lDigest(fGetHwid())
-            }),
-            Headers = {
-                ["Content-Type"] = "application/json"
-            }
-        })
-
-        if response.StatusCode == 200 then
-            local decoded = lDecode(response.Body)
-            if decoded.success == true then
-                cachedLink = decoded.data.url
-                cachedTime = fOsTime()
-                return true, cachedLink
-            end
-        end
-        return false, "Failed to generate link"
-    else
-        return true, cachedLink
-    end
-end
-
-local function generatePlatoboostNonce()
-    local str = ""
-    for _ = 1, 16 do
-        str = str .. fStringChar(fMathFloor(fMathRandom() * (122 - 97 + 1)) + 97)
-    end
-    return str
-end
-
-local function verifyPlatoboostKey(key)
-    local nonce = generatePlatoboostNonce()
-    local endpoint = host .. "/public/whitelist/" .. fToString(PLATOBOOST_SERVICE) .. "?identifier=" .. lDigest(fGetHwid()) .. "&key=" .. key .. "&nonce=" .. nonce
-
-    local response = fRequest({
-        Url = endpoint,
-        Method = "GET",
-    })
-
-    if response and response.StatusCode == 200 then
-        local decoded = lDecode(response.Body)
-        if decoded and decoded.success == true and decoded.data and decoded.data.valid == true then
-            if decoded.data.hash == lDigest("true" .. "-" .. nonce .. "-" .. PLATOBOOST_SECRET) then
-                return true, "Key Accepted!"
-            end
-        end
-    end
-    return false, "Invalid or Expired Key"
-end
-
--------------------------------------------------------------------------------
--- UI Интерфейс Лоадера (compact green access panel)
--------------------------------------------------------------------------------
-local function tw(obj, props, t, style)
-    TweenService:Create(obj,
-        TweenInfo.new(t or 0.22, style or Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-        props
-    ):Play()
-end
+local SPECIAL={}
 local function rgb(r,g,b) return Color3.fromRGB(r,g,b) end
+local C={BG=rgb(16,18,21),PN=rgb(30,33,38),P2=rgb(24,27,31),BD=rgb(55,60,68),
+ACC=rgb(34,197,94),BL=rgb(59,130,246),WH=rgb(240,242,245),GR=rgb(145,150,158),
+DK=rgb(20,22,26),NP=rgb(165,165,165),RD=rgb(255,70,70)}
 
-local C = {
-    CARD    = rgb(13, 15, 16),
-    HEADER  = rgb(24, 27, 31),
-    BORDER  = rgb(48, 52, 57),
-    ACCENT  = rgb(34, 197, 94),
-    ACCENT2 = rgb(22, 163, 74),
-    GREEN   = rgb(34, 197, 94),
-    RED     = rgb(239, 68, 68),
-    WHITE   = rgb(242, 244, 246),
-    GRAY    = rgb(143, 148, 156),
-    GRAY2   = rgb(38, 41, 46),
-    INPUT   = rgb(9, 11, 12),
-    TOAST_OK  = rgb(20, 50, 28),
-    TOAST_ERR = rgb(50, 18, 18),
-}
+local function nw(c,pr,p) local o=Instance.new(c) for k,v in pairs(pr) do o[k]=v end if p then o.Parent=p end return o end
+local function cn(o,r) return nw("UICorner",{CornerRadius=UDim.new(0,r or 8)},o) end
 
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "_KeySys"; Gui.ResetOnSpawn = false
-Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Gui.DisplayOrder = 999
+local Gui
+for _,tgt in ipairs({
+ (function() local h pcall(function() if gethui then h=gethui() end end) return h end)(),
+ (function() local cg pcall(function() cg=game:GetService("CoreGui") end) return cg end)(),
+ LP:WaitForChild("PlayerGui",5),
+}) do
+ if tgt then
+  local g2
+  local okp=pcall(function()
+   local a=tgt:FindFirstChild("SemyonHub") if a then a:Destroy() end
+   local b=tgt:FindFirstChild("_SErr") if b then b:Destroy() end
+   g2=nw("ScreenGui",{Name="SemyonHub",ResetOnSpawn=false,DisplayOrder=999},tgt)
+  end)
+  if okp and g2 then Gui=g2 break end
+ end
+end
+if not Gui then error("no ScreenGui") end
 
-local parentGui = (gethui and gethui()) or (pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui")) or PlayerGui
-local old = parentGui:FindFirstChild("_KeySys")
-if old then old:Destroy() end
+local Main=nw("Frame",{Size=UDim2.new(0,470,0,400),Position=UDim2.new(0.5,-235,0.5,-200),BackgroundColor3=C.BG,BorderSizePixel=0,Active=true},Gui)
+cn(Main,10)
+nw("UIStroke",{Color=C.BD,Thickness=1},Main)
+local Top=nw("Frame",{Size=UDim2.new(1,0,0,34),BackgroundColor3=C.P2,BorderSizePixel=0,Active=true},Main)
+cn(Top,10)
+nw("TextLabel",{Size=UDim2.new(0,260,1,0),Position=UDim2.new(0,12,0,0),BackgroundTransparency=1,Text="SEMYON HUB V1.7",TextColor3=C.WH,TextSize=14,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left},Top)
+local X=nw("TextButton",{Size=UDim2.new(0,24,0,24),Position=UDim2.new(1,-30,0.5,-12),BackgroundColor3=C.DK,Text="X",TextColor3=C.GR,TextSize=13,Font=Enum.Font.GothamBold,AutoButtonColor=false},Top)
+cn(X,6)
 
-Gui.Parent = parentGui
+local dg,ds,sp=false,nil,nil
+Top.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dg=true ds=i.Position sp=Main.Position end end)
+UIS.InputChanged:Connect(function(i) if dg and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local d=i.Position-ds Main.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y) end end)
+UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dg=false end end)
 
-local toastItems = {}
-local TOAST_W, TOAST_H, TOAST_GAP = 360, 66, 12
+local PR=nw("Frame",{Size=UDim2.new(1,0,0,36),Position=UDim2.new(0,0,0,34),BackgroundTransparency=1},Main)
+nw("UIListLayout",{Padding=UDim.new(0,8),FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center},PR)
+nw("UIPadding",{},PR).PaddingLeft=UDim.new(0,10)
+nw("TextLabel",{Size=UDim2.new(1,-20,0,26),Position=UDim2.new(0,12,0,72),BackgroundTransparency=1,Text="SEMYON HUB",TextColor3=C.ACC,TextSize=20,Font=Enum.Font.GothamBlack,TextXAlignment=Enum.TextXAlignment.Left},Main)
+local CT=nw("Frame",{Size=UDim2.new(1,0,1,-102),Position=UDim2.new(0,0,0,100),BackgroundTransparency=1},Main)
 
-local function reflowToasts()
-    for index, item in ipairs(toastItems) do
-        local yOffset = -22 - ((index - 1) * (TOAST_H + TOAST_GAP))
-        tw(item, {Position = UDim2.new(1, -20, 1, yOffset)}, 0.24, Enum.EasingStyle.Quart)
-    end
+local pages,pills={},{}
+local function tab(n)
+ local b=nw("TextButton",{Size=UDim2.new(0,74,0,26),BackgroundColor3=C.PN,Text=n,TextColor3=C.GR,TextSize=12,Font=Enum.Font.GothamBold,AutoButtonColor=false},PR)
+ cn(b,999)
+ nw("UIStroke",{Color=C.BD,Thickness=1},b)
+ local p=nw("ScrollingFrame",{Size=UDim2.new(1,-8,1,-4),Position=UDim2.new(0,4,0,2),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=5,ScrollBarImageColor3=C.BL,CanvasSize=UDim2.new(0,0,0,0),Visible=false,ClipsDescendants=true},CT)
+ local l=nw("UIListLayout",{Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder},p)
+ l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() p.CanvasSize=UDim2.new(0,0,0,l.AbsoluteContentSize.Y+10) end)
+ b.MouseButton1Click:Connect(function()
+  for _,x in pairs(pages) do x.Visible=false end
+  for _,x in pairs(pills) do x.BackgroundColor3=C.PN x.TextColor3=C.GR end
+  p.Visible=true b.BackgroundColor3=rgb(40,46,54) b.TextColor3=C.WH
+ end)
+ pages[n]=p pills[n]=b return p
 end
 
-local function toast(msg, isOk)
-    local bg = isOk and rgb(12, 27, 18) or rgb(32, 14, 16)
-    local accent = isOk and C.GREEN or C.RED
-
-    local T = Instance.new("Frame")
-    T.Name = "KeyNotification"
-    T.Size = UDim2.new(0, TOAST_W, 0, TOAST_H)
-    T.AnchorPoint = Vector2.new(1, 1)
-    T.Position = UDim2.new(1, TOAST_W + 24, 1, -22)
-    T.BackgroundColor3 = bg
-    T.BackgroundTransparency = 0.15
-    T.BorderSizePixel = 0; T.ZIndex = 20
-    T.Parent = Gui
-    Instance.new("UICorner", T).CornerRadius = UDim.new(0, 10)
-
-    local toastStroke = Instance.new("UIStroke")
-    toastStroke.Color = rgb(52, 56, 62); toastStroke.Thickness = 1
-    toastStroke.Transparency = 0.25; toastStroke.Parent = T
-
-    local stripe = Instance.new("Frame")
-    stripe.Size = UDim2.new(0, 5, 1, -16)
-    stripe.Position = UDim2.new(0, 0, 0, 8)
-    stripe.BackgroundColor3 = accent
-    stripe.BorderSizePixel = 0; stripe.ZIndex = 21
-    stripe.Parent = T
-    Instance.new("UICorner", stripe).CornerRadius = UDim.new(1, 0)
-
-    local heading = Instance.new("TextLabel")
-    heading.Size = UDim2.new(1, -34, 0, 18)
-    heading.Position = UDim2.new(0, 20, 0, 10)
-    heading.BackgroundTransparency = 1
-    heading.Text = isOk and "SUCCESS" or "ACTION NEEDED"
-    heading.TextColor3 = accent; heading.TextSize = 11
-    heading.Font = Enum.Font.GothamBold
-    heading.TextXAlignment = Enum.TextXAlignment.Left
-    heading.ZIndex = 21; heading.Parent = T
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -34, 0, 24)
-    lbl.Position = UDim2.new(0, 20, 0, 30)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = msg; lbl.TextColor3 = C.WHITE
-    lbl.TextSize = 14; lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.TextTruncate = Enum.TextTruncate.AtEnd
-    lbl.ZIndex = 21; lbl.Parent = T
-
-    table.insert(toastItems, 1, T)
-    reflowToasts()
-
-    task.delay(4, function()
-        local foundIndex = table.find(toastItems, T)
-        if foundIndex then table.remove(toastItems, foundIndex) end
-        tw(T, {Position = UDim2.new(1, TOAST_W + 24, 1, T.Position.Y.Offset), BackgroundTransparency = 1}, 0.25)
-        reflowToasts()
-        task.delay(0.3, function() if T then T:Destroy() end end)
-    end)
+local function sec(p,t,o) nw("TextLabel",{Size=UDim2.new(1,-16,0,18),BackgroundTransparency=1,Text=t,TextColor3=C.GR,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,LayoutOrder=o},p) end
+local function info(p,t,o) local r=nw("Frame",{Size=UDim2.new(1,-8,0,40),BackgroundColor3=C.PN,LayoutOrder=o},p) cn(r,8) nw("TextLabel",{Size=UDim2.new(1,-24,1,0),Position=UDim2.new(0,12,0,0),BackgroundTransparency=1,Text=t,TextColor3=C.GR,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextWrapped=true},r) end
+local function tog(p,t,o,cb)
+ local st=false
+ local r=nw("Frame",{Size=UDim2.new(1,-8,0,36),BackgroundColor3=C.PN,LayoutOrder=o},p) cn(r,8)
+ nw("TextLabel",{Size=UDim2.new(1,-70,1,0),Position=UDim2.new(0,12,0,0),BackgroundTransparency=1,Text=t,TextColor3=C.WH,TextSize=13,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},r)
+ local tr=nw("Frame",{Size=UDim2.new(0,40,0,20),Position=UDim2.new(1,-52,0.5,-10),BackgroundColor3=rgb(70,75,84)},r) cn(tr,999)
+ local kn=nw("Frame",{Size=UDim2.new(0,16,0,16),Position=UDim2.new(0,2,0.5,-8),BackgroundColor3=rgb(255,255,255)},tr) cn(kn,999)
+ nw("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text=""},r).MouseButton1Click:Connect(function()
+  st=not st tr.BackgroundColor3=st and C.BL or rgb(70,75,84)
+  kn.Position=st and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8)
+  cb(st)
+ end)
+end
+local function sld(p,t,o,mn,mx,df,un,cb)
+ local r=nw("Frame",{Size=UDim2.new(1,-8,0,36),BackgroundColor3=C.PN,LayoutOrder=o},p) cn(r,8)
+ nw("TextLabel",{Size=UDim2.new(0,140,1,0),Position=UDim2.new(0,12,0,0),BackgroundTransparency=1,Text=t,TextColor3=C.WH,TextSize=13,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},r)
+ local bar=nw("Frame",{Size=UDim2.new(0,180,0,24),Position=UDim2.new(1,-192,0.5,-12),BackgroundColor3=rgb(70,75,84)},r) cn(bar,999)
+ local fl=nw("Frame",{Size=UDim2.new((df-mn)/(mx-mn),0,1,0),BackgroundColor3=C.BL},bar) cn(fl,999)
+ local lb=nw("TextLabel",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text=df.." "..un,TextColor3=C.WH,TextSize=11,Font=Enum.Font.GothamBold},fl)
+ local d2=false
+ bar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then d2=true end end)
+ UIS.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then d2=false end end)
+ UIS.InputChanged:Connect(function(i)
+  if d2 and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+   local rel=math.clamp((i.Position.X-bar.AbsolutePosition.X)/bar.AbsoluteSize.X,0,1)
+   local v=math.floor(mn+(mx-mn)*rel+0.5)
+   fl.Size=UDim2.new(rel,0,1,0) lb.Text=v.." "..un cb(v)
+  end
+ end)
+end
+local function keyb(p,t,o,dk,cb)
+ local r=nw("Frame",{Size=UDim2.new(1,-8,0,36),BackgroundColor3=C.PN,LayoutOrder=o},p) cn(r,8)
+ nw("TextLabel",{Size=UDim2.new(1,-80,1,0),Position=UDim2.new(0,12,0,0),BackgroundTransparency=1,Text=t,TextColor3=C.WH,TextSize=13,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left},r)
+ local kb=nw("TextButton",{Size=UDim2.new(0,44,0,26),Position=UDim2.new(1,-56,0.5,-13),BackgroundColor3=C.DK,Text=dk.Name,TextColor3=C.WH,TextSize=12,Font=Enum.Font.GothamBold,AutoButtonColor=false},r) cn(kb,6)
+ kb.MouseButton1Click:Connect(function()
+  kb.Text="..."
+  local c
+  c=UIS.InputBegan:Connect(function(i)
+   if i.UserInputType==Enum.UserInputType.Keyboard then kb.Text=i.KeyCode.Name cb(i.KeyCode) c:Disconnect() end
+  end)
+ end)
+end
+local function btn(p,t,o,cb)
+ local r=nw("TextButton",{Size=UDim2.new(1,-8,0,36),BackgroundColor3=C.PN,Text=t,TextColor3=C.WH,TextSize=12,Font=Enum.Font.Gotham,AutoButtonColor=false,LayoutOrder=o},p)
+ cn(r,8)
+ r.MouseButton1Click:Connect(function() r.BackgroundColor3=rgb(45,52,60) task.delay(0.12,function() r.BackgroundColor3=C.PN end) cb(r) end)
+ return r
 end
 
-local W, H = 380, 310
-local Card = Instance.new("Frame")
-Card.Size = UDim2.new(0, W, 0, H)
-Card.Position = UDim2.new(0.5, -W/2, 0.5, 50)
-Card.BackgroundColor3 = C.CARD
-Card.BackgroundTransparency = 0.08
-Card.BorderSizePixel = 0; Card.ZIndex = 2
-Card.ClipsDescendants = true
-Card.Parent = Gui
+local function chr() local c=LP.Character return c,c and c:FindFirstChildOfClass("Humanoid"),c and c:FindFirstChild("HumanoidRootPart") end
+local function isPl(m) return P:GetPlayerFromCharacter(m)~=nil end
+local function eachNPC(f)
+ for _,m in ipairs(workspace:GetChildren()) do
+  if m:IsA("Model") and m:FindFirstChildOfClass("Humanoid") and not isPl(m) then f(m) end
+ end
+end
 
-tw(Card, {BackgroundTransparency = 0.08, Position = UDim2.new(0.5, -W/2, 0.5, -H/2)}, 0.45, Enum.EasingStyle.Back)
-Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 14)
+local espOn,espNPC=false,false
+local eo={}
+local function clearE() for _,o in pairs(eo) do pcall(function() o:Destroy() end) end eo={} end
+local function tag(m,col,nm)
+ if eo[m] then return end
+ local h=Instance.new("Highlight") h.FillColor=col h.OutlineColor=col h.FillTransparency=0.85 h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop h.Parent=m eo[m]=h
+ if nm then
+  local hd=m:FindFirstChild("Head") or m:FindFirstChildWhichIsA("BasePart")
+  if hd then
+   local bb=Instance.new("BillboardGui") bb.Size=UDim2.new(0,140,0,20) bb.StudsOffset=Vector3.new(0,2.5,0) bb.AlwaysOnTop=true bb.Parent=hd
+   local tx=Instance.new("TextLabel") tx.Size=UDim2.new(1,0,1,0) tx.BackgroundTransparency=1 tx.Text=m.Name tx.TextColor3=col tx.TextSize=12 tx.Font=Enum.Font.GothamBold tx.Parent=bb
+   eo[m.."_t"]=bb
+  end
+ end
+end
+local function refE()
+ clearE()
+ if not espOn then return end
+ for _,pl in ipairs(P:GetPlayers()) do
+  if pl~=LP and pl.Character then
+   local s=SPECIAL[pl.Name]
+   tag(pl.Character,s and C.RD or C.BL,s)
+  end
+ end
+ if espNPC then eachNPC(function(m) if m:FindFirstChildOfClass("Humanoid").Health>0 then tag(m,C.NP,true) end end) end
+end
 
-local stroke = Instance.new("UIStroke")
-stroke.Color = C.BORDER; stroke.Thickness = 1; stroke.Parent = Card
-
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, -28, 0, 2)
-TopBar.Position = UDim2.new(0, 14, 0, 1)
-TopBar.BackgroundColor3 = C.ACCENT
-TopBar.BorderSizePixel = 0; TopBar.ZIndex = 6; TopBar.Parent = Card
-Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 3)
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 48)
-Header.Position = UDim2.new(0, 0, 0, 0)
-Header.BackgroundColor3 = C.HEADER
-Header.BackgroundTransparency = 0
-Header.BorderSizePixel = 0; Header.ZIndex = 3; Header.Parent = Card
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 14)
-
-local HeaderDivider = Instance.new("Frame")
-HeaderDivider.Size = UDim2.new(1, 0, 0, 1)
-HeaderDivider.Position = UDim2.new(0, 0, 1, -1)
-HeaderDivider.BackgroundColor3 = rgb(61, 66, 73)
-HeaderDivider.BorderSizePixel = 0
-HeaderDivider.ZIndex = 4; HeaderDivider.Parent = Header
-
-local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(1, -96, 1, 0)
-HeaderTitle.Position = UDim2.new(0, 48, 0, 0)
-HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = GAME_NAME
-HeaderTitle.TextColor3 = C.WHITE; HeaderTitle.TextSize = 14
-HeaderTitle.Font = Enum.Font.GothamBlack
-HeaderTitle.TextXAlignment = Enum.TextXAlignment.Center
-HeaderTitle.ZIndex = 4; HeaderTitle.Parent = Header
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -39, 0.5, -15)
-CloseBtn.BackgroundColor3 = C.GRAY2
-CloseBtn.Text = "X"; CloseBtn.TextColor3 = C.GRAY
-CloseBtn.TextSize = 20; CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.ZIndex = 5; CloseBtn.Parent = Header
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
-
-CloseBtn.MouseEnter:Connect(function() tw(CloseBtn,{BackgroundColor3=C.RED,TextColor3=C.WHITE},0.15) end)
-CloseBtn.MouseLeave:Connect(function() tw(CloseBtn,{BackgroundColor3=C.GRAY2,TextColor3=C.GRAY},0.15) end)
-CloseBtn.MouseButton1Click:Connect(function()
-    tw(Card, {BackgroundTransparency=1, Position=UDim2.new(0.5,-W/2,0.5,-H/2-20)}, 0.2)
-    task.delay(0.25, function() Gui:Destroy() end)
-end)
-
-local dragging, dragStart, cardStart = false, nil, nil
-Header.InputBegan:Connect(function(inp)
-    if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging  = true
-        dragStart = inp.Position
-        cardStart = Card.Position
+local h1={on=false,sz=50}
+local h2={on=false,sz=100,tr=1,npc=false}
+local sv={}
+local function getO(m,pt) sv[m]=sv[m] or {} if not sv[m][pt] then sv[m][pt]={s=pt.Size,t=pt.Transparency,c=pt.CanCollide} end return sv[m][pt] end
+local function rest()
+ for m,ps in pairs(sv) do for pt,d in pairs(ps) do pcall(function() if pt and pt.Parent then pt.Size=d.s pt.Transparency=d.t pt.CanCollide=d.c end end) end end sv={}
+end
+task.spawn(function()
+ while true do
+  task.wait(0.4)
+  if h1.on or h2.on then
+   local function ap(m,sz,tr)
+    local hr=m:FindFirstChild("HumanoidRootPart")
+    if hr and hr:IsA("BasePart") then
+     local o=getO(m,hr)
+     local y=math.clamp(o.s.Y,2,6)
+     pcall(function() hr.Size=Vector3.new(sz,y,sz) hr.Transparency=tr hr.CanCollide=false end)
     end
-end)
-UIS.InputChanged:Connect(function(inp)
-    if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = inp.Position - dragStart
-        Card.Position = UDim2.new(cardStart.X.Scale, cardStart.X.Offset + d.X, cardStart.Y.Scale, cardStart.Y.Offset + d.Y)
+   end
+   for _,pl in ipairs(P:GetPlayers()) do
+    if pl~=LP and pl.Character then
+     if h2.on then ap(pl.Character,h2.sz,h2.tr) elseif h1.on then ap(pl.Character,h1.sz,0.7) end
     end
+   end
+   if h2.on and h2.npc then eachNPC(function(m) ap(m,h2.sz,h2.tr) end) elseif h1.on then eachNPC(function(m) ap(m,h1.sz,0.7) end) end
+  end
+ end
 end)
-UIS.InputEnded:Connect(function(inp)
-    if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
 
-local Body = Instance.new("Frame")
-Body.Size = UDim2.new(1, 0, 1, -48)
-Body.Position = UDim2.new(0, 0, 0, 48)
-Body.BackgroundTransparency = 1; Body.ZIndex = 3; Body.Parent = Card
-
-local StatusPill = Instance.new("Frame")
-StatusPill.Size = UDim2.new(0, 142, 0, 24)
-StatusPill.Position = UDim2.new(0.5, -71, 0, 14)
-StatusPill.BackgroundColor3 = C.CARD
-StatusPill.BackgroundTransparency = 1
-StatusPill.BorderSizePixel = 0; StatusPill.ZIndex = 4; StatusPill.Parent = Body
-Instance.new("UICorner", StatusPill).CornerRadius = UDim.new(1, 0)
-
-local StatusPillStroke = Instance.new("UIStroke")
-StatusPillStroke.Color = C.ACCENT; StatusPillStroke.Thickness = 1; StatusPillStroke.Parent = StatusPill
-
-local StatusPillText = Instance.new("TextLabel")
-StatusPillText.Size = UDim2.new(1, 0, 1, 0)
-StatusPillText.BackgroundTransparency = 1
-StatusPillText.Text = "ACCESS LOCKED"
-StatusPillText.TextColor3 = C.ACCENT; StatusPillText.TextSize = 11
-StatusPillText.Font = Enum.Font.GothamBlack
-StatusPillText.ZIndex = 5; StatusPillText.Parent = StatusPill
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -32, 0, 34)
-Title.Position = UDim2.new(0, 16, 0, 45)
-Title.BackgroundTransparency = 1
-Title.Text = "Enter your key"
-Title.TextColor3 = C.WHITE; Title.TextSize = 26
-Title.Font = Enum.Font.GothamBlack
-Title.TextXAlignment = Enum.TextXAlignment.Center
-Title.ZIndex = 4; Title.Parent = Body
-
-local Sub = Instance.new("TextLabel")
-Sub.Size = UDim2.new(1, -32, 0, 18)
-Sub.Position = UDim2.new(0, 16, 0, 79)
-Sub.BackgroundTransparency = 1
-Sub.Text = "Get a key, then return here to unlock"
-Sub.TextColor3 = C.GRAY; Sub.TextSize = 12
-Sub.Font = Enum.Font.Gotham
-Sub.TextXAlignment = Enum.TextXAlignment.Center
-Sub.ZIndex = 4; Sub.Parent = Body
-
-local InputWrap = Instance.new("Frame")
-InputWrap.Size = UDim2.new(1, -32, 0, 46)
-InputWrap.Position = UDim2.new(0, 16, 0, 108)
-InputWrap.BackgroundColor3 = C.INPUT
-InputWrap.ZIndex = 4; InputWrap.Parent = Body
-Instance.new("UICorner", InputWrap).CornerRadius = UDim.new(0, 10)
-
-local InputStroke = Instance.new("UIStroke")
-InputStroke.Color = C.BORDER; InputStroke.Thickness = 1; InputStroke.Parent = InputWrap
-
-local InputField = Instance.new("TextBox")
-InputField.Size = UDim2.new(1, -20, 1, 0)
-InputField.Position = UDim2.new(0, 12, 0, 0)
-InputField.BackgroundTransparency = 1
-InputField.PlaceholderText = "Paste key here"
-InputField.PlaceholderColor3 = rgb(82, 87, 94)
-InputField.Text = tostring(getgenv().KEY or "")
-InputField.TextColor3 = C.WHITE; InputField.TextSize = 13
-InputField.Font = Enum.Font.GothamMedium; InputField.ClearTextOnFocus = false
-InputField.ZIndex = 5; InputField.Parent = InputWrap
-
-InputField.Focused:Connect(function() tw(InputStroke,{Color=C.ACCENT},0.15) end)
-InputField.FocusLost:Connect(function() tw(InputStroke,{Color=C.BORDER},0.15) end)
-
--- Кнопки
-local GKWrap = Instance.new("Frame")
-GKWrap.Size = UDim2.new(0.5, -21, 0, 44)
-GKWrap.Position = UDim2.new(0, 16, 0, 166)
-GKWrap.BackgroundColor3 = C.ACCENT
-GKWrap.BackgroundTransparency = 0
-GKWrap.ZIndex = 3; GKWrap.Parent = Body
-Instance.new("UICorner", GKWrap).CornerRadius = UDim.new(0, 10)
-
-local GetKeyBtn = Instance.new("TextButton")
-GetKeyBtn.Size = UDim2.new(1, -2, 1, -2)
-GetKeyBtn.Position = UDim2.new(0, 1, 0, 1)
-GetKeyBtn.BackgroundColor3 = C.ACCENT
-GetKeyBtn.BackgroundTransparency = 0
-GetKeyBtn.Text = "Copy Link"; GetKeyBtn.TextColor3 = C.WHITE
-GetKeyBtn.TextSize = 13; GetKeyBtn.Font = Enum.Font.GothamBlack
-GetKeyBtn.ZIndex = 4; GetKeyBtn.Parent = GKWrap
-Instance.new("UICorner", GetKeyBtn).CornerRadius = UDim.new(0, 9)
-
-GetKeyBtn.MouseButton1Click:Connect(function()
-    task.spawn(function()
-        GetKeyBtn.Text = "Preparing..."
-        for _ = 1, 15 do
-            if SESSION_ID ~= "" then break end
-            task.wait(0.1)
+local noCD=false local spd=5
+task.spawn(function()
+ while true do
+  task.wait(math.clamp(1/spd,0.05,1))
+  if noCD then
+   local ch=LP.Character
+   for _,bag in ipairs({ch,LP:FindFirstChildOfClass("Backpack")}) do
+    if bag then
+     for _,o in ipairs(bag:GetDescendants()) do
+      if o:IsA("NumberValue") or o:IsA("IntValue") then
+       local n=o.Name:lower()
+       if n:find("cool") or n:find("cd") or n:find("debounce") or n:find("reload") then o.Value=0 end
+      end
+      if o:IsA("Tool") or o:IsA("BasePart") then
+       pcall(function()
+        for a,v in pairs(o:GetAttributes()) do
+         local n=a:lower()
+         if (n:find("cool") or n:find("cd") or n:find("reload")) and type(v)=="number" then o:SetAttribute(a,0) end
         end
-        local targetLink = BASE_URL .. "/startkey?game=" .. urlEncode(GAME_ID)
-        if SESSION_ID ~= "" then targetLink = targetLink .. "&sid=" .. urlEncode(SESSION_ID) end
-        if not fSetClipboard then
-            toast("Clipboard is not supported by this executor.", false)
-            GetKeyBtn.Text = "Copy Link"
-            return
-        end
-        local copied = pcall(function() fSetClipboard(targetLink) end)
-        if not copied then
-            toast("Could not copy the link. Try another executor.", false)
-            GetKeyBtn.Text = "Copy Link"
-            return
-        end
-        toast("Link copied to clipboard!", true)
-        GetKeyBtn.Text = "Copied!"
-        task.delay(2, function()
-            if GetKeyBtn and GetKeyBtn.Parent then GetKeyBtn.Text = "Copy Link" end
-        end)
-    end)
+       end)
+      end
+     end
+    end
+   end
+   local t=ch and ch:FindFirstChildOfClass("Tool")
+   if t then
+    pcall(function() t:Activate() end)
+    for _,r in ipairs(t:GetDescendants()) do
+     if r:IsA("RemoteEvent") then pcall(function() r:FireServer() end) end
+    end
+   end
+  end
+ end
 end)
 
-local ActivateBtn = Instance.new("TextButton")
-local ActivateWrap = Instance.new("Frame")
-ActivateWrap.Size = UDim2.new(0.5, -21, 0, 44)
-ActivateWrap.Position = UDim2.new(0.5, 5, 0, 166)
-ActivateWrap.BackgroundColor3 = C.BORDER
-ActivateWrap.BorderSizePixel = 0
-ActivateWrap.ZIndex = 3; ActivateWrap.Parent = Body
-Instance.new("UICorner", ActivateWrap).CornerRadius = UDim.new(0, 10)
-
-ActivateBtn.Size = UDim2.new(1, -2, 1, -2)
-ActivateBtn.Position = UDim2.new(0, 1, 0, 1)
-ActivateBtn.BackgroundColor3 = C.CARD
-ActivateBtn.Text = "Verify"; ActivateBtn.TextColor3 = C.ACCENT
-ActivateBtn.TextSize = 14; ActivateBtn.Font = Enum.Font.GothamBlack
-ActivateBtn.ZIndex = 4; ActivateBtn.Parent = ActivateWrap
-Instance.new("UICorner", ActivateBtn).CornerRadius = UDim.new(0, 9)
-
-local function refreshActions()
-    local hasToken = InputField.Text:match("%S") ~= nil
-    ActivateBtn.Active = hasToken
-    if hasToken then
-        tw(GetKeyBtn, {BackgroundColor3=C.CARD, TextColor3=C.ACCENT}, 0.16)
-        tw(ActivateWrap, {BackgroundColor3=C.ACCENT}, 0.16)
-        tw(ActivateBtn, {BackgroundColor3=C.ACCENT, TextColor3=C.WHITE}, 0.16)
-    else
-        tw(GetKeyBtn, {BackgroundColor3=C.ACCENT, TextColor3=C.WHITE}, 0.16)
-        tw(ActivateWrap, {BackgroundColor3=C.BORDER}, 0.16)
-        tw(ActivateBtn, {BackgroundColor3=C.CARD, TextColor3=C.GRAY}, 0.16)
+local function rec()
+ if not hookmetamethod or not getnamecallmethod then print("[SEMYON] hookmetamethod unsupported") return end
+ print("[SEMYON] REC 10s - press E/Q/R")
+ local w=newcclosure or function(f) return f end
+ local o
+ o=hookmetamethod(game,"__namecall",w(function(self,...)
+  local m=getnamecallmethod()
+  if m=="FireServer" or m=="InvokeServer" then
+   local a={...}
+   pcall(function()
+    local s=""
+    for i=1,math.min(#a,6) do
+     local v=a[i]
+     if typeof(v)=="Instance" then s=s..v.Name.."("..v.ClassName..")" else s=s..tostring(v) end
+     if i<#a then s=s..", " end
     end
+    print("[SEMYON CALL] "..m.." | "..self:GetFullName().." | "..s)
+   end)
+  end
+  return o(self,...)
+ end))
+ task.delay(10,function() print("[SEMYON] REC done - send [SEMYON CALL] lines") end)
 end
 
-InputField:GetPropertyChangedSignal("Text"):Connect(refreshActions)
-GetKeyBtn.MouseEnter:Connect(function() tw(GetKeyBtn,{BackgroundColor3=C.ACCENT2,TextColor3=C.WHITE},0.15) end)
-GetKeyBtn.MouseLeave:Connect(refreshActions)
-ActivateBtn.MouseEnter:Connect(function()
-    if InputField.Text:match("%S") then tw(ActivateBtn,{BackgroundColor3=C.ACCENT2},0.15) end
+local voidOn=false local vKey=Enum.KeyCode.V
+local function fTool(pt)
+ for _,bag in ipairs({LP.Character,LP:FindFirstChildOfClass("Backpack")}) do
+  if bag then for _,t in ipairs(bag:GetChildren()) do if t:IsA("Tool") and t.Name:lower():find(pt) then return t end end end
+ end
+end
+local function vKill()
+ local c,h,hr=chr() if not h or not hr then return end
+ local st=hr.CFrame
+ local function u(t) if not t then return end h:EquipTool(t) task.wait(0.15) pcall(function() t:Activate() end) task.wait(0.3) end
+ u(fTool("void")) u(fTool("orb")) task.wait(0.2)
+ if hr.Parent then hr.CFrame=st end
+end
+
+local bot={on=false,act=false,r=500,d=30,ab=true}
+local bStat
+local function near(rd)
+ local _,_,hr=chr() if not hr then return nil end
+ local b,bd=nil,rd
+ for _,pl in ipairs(P:GetPlayers()) do
+  if pl~=LP and pl.Character then
+   local h=pl.Character:FindFirstChildOfClass("Humanoid")
+   local rr=pl.Character:FindFirstChild("HumanoidRootPart")
+   if h and rr and h.Health>0 then
+    local d=(rr.Position-hr.Position).Magnitude
+    if d<bd then b,bd=pl.Character,d end
+   end
+  end
+ end
+ eachNPC(function(m)
+  local h=m:FindFirstChildOfClass("Humanoid")
+  local rr=m:FindFirstChild("HumanoidRootPart") or m:FindFirstChildWhichIsA("BasePart")
+  if h and rr and h.Health>0 then
+   local d=(rr.Position-hr.Position).Magnitude
+   if d<bd then b,bd=m,d end
+  end
+ end)
+ return b
+end
+task.spawn(function()
+ while true do
+  task.wait(0.25)
+  if bot.on and bot.act then
+   local tg=near(bot.r)
+   local c,_,hr=chr()
+   if tg and hr then
+    local t=tg:FindFirstChild("HumanoidRootPart") or tg:FindFirstChildWhichIsA("BasePart")
+    if t then
+     hr.CFrame=CFrame.lookAt(t.Position+(hr.Position-t.Position).Unit*bot.d,t.Position)
+     local tl=c and c:FindFirstChildOfClass("Tool")
+     if tl then pcall(function() tl:Activate() end) end
+     if bot.ab then
+      for _,k in ipairs({Enum.KeyCode.E,Enum.KeyCode.Q,Enum.KeyCode.R}) do
+       pcall(function()
+        local V=game:GetService("VirtualInputManager")
+        V:SendKeyEvent(true,k,false,game) task.wait(0.05) V:SendKeyEvent(false,k,false,game)
+       end)
+       task.wait(0.15)
+      end
+     end
+    end
+   end
+  end
+ end
 end)
-ActivateBtn.MouseLeave:Connect(refreshActions)
-refreshActions()
 
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -32, 0, 16)
-StatusLabel.Position = UDim2.new(0, 16, 0, 216)
-StatusLabel.BackgroundTransparency = 1; StatusLabel.Text = ""
-StatusLabel.TextColor3 = C.GRAY; StatusLabel.TextSize = 11
-StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Center
-StatusLabel.ZIndex = 4; StatusLabel.Parent = Body
+local tH=tab("Hitbox") local tF=tab("Fight") local tE=tab("ESP")
 
-local Footer = Instance.new("TextLabel")
-Footer.Size = UDim2.new(1, -32, 0, 15)
-Footer.Position = UDim2.new(0, 16, 0, 238)
-Footer.BackgroundTransparency = 1
-Footer.Text = "Keys stay active for 24 hours"
-Footer.TextColor3 = rgb(150, 150, 165); Footer.TextSize = 10
-Footer.Font = Enum.Font.Gotham
-Footer.TextXAlignment = Enum.TextXAlignment.Center
-Footer.ZIndex = 4; Footer.Parent = Body
+tog(tH,"Enable Hitbox V1",1,function(s) h1.on=s if not s and not h2.on then rest() end end)
+sld(tH,"Hitbox Size",2,10,200,50,"studs",function(v) h1.sz=v end)
+sec(tH,"Hitbox V2 (Players)",3)
+tog(tH,"Enable Hitbox V2",4,function(s) h2.on=s if not s and not h1.on then rest() end end)
+tog(tH,"Apply To NPC",5,function(s) h2.npc=s end)
+sld(tH,"Hitbox Size",6,10,300,100,"studs",function(v) h2.sz=v end)
+sld(tH,"Hitbox Transparency",7,0,100,100,"%",function(v) h2.tr=v/100 end)
 
-local function setState(state, msg)
-    if state == "loading" then
-        TopBar.BackgroundColor3 = C.GRAY
-        StatusPillText.Text = "VERIFYING ACCESS"
-        StatusPillText.TextColor3 = C.GRAY
-        StatusPillStroke.Color = C.GRAY
-        Title.Text = "Checking your key"
-        Sub.Text = "Validating with the secure gateway"
-        StatusLabel.Text = ""; StatusLabel.TextColor3 = C.GRAY
-        ActivateBtn.Active = false
-        tw(ActivateBtn, {BackgroundTransparency=0.6, TextTransparency=0.5}, 0.15)
+info(tF,"Doesn't work on many trolls BUT it speeds up reload time for all trolls",1)
+tog(tF,"Enable No CD",2,function(s) noCD=s end)
+sld(tF,"No CD Speed",3,1,20,5,"x",function(v) spd=v end)
+btn(tF,"Record ability remotes (10 sec)",4,function() rec() end)
+sec(tF,"Void Troll Instant Kill",5)
+info(tF,"Use Void Troll then use Orb ability and teleport",6)
+info(tF,"if you are sure you hit the player with the ability to kill him instantly",7)
+tog(tF,"Enable Void Kill (Press V)",8,function(s) voidOn=s end)
+keyb(tF,"Void Kill Keybind",9,Enum.KeyCode.V,function(k) vKey=k end)
+sec(tF,"CombotBot-Beta",10)
+tog(tF,"Enable CombotBot-Beta",11,function(s) bot.on=s if not s then bot.act=false if bStat then bStat.Text="Press 'U' to activate bot" end end end)
+bStat=btn(tF,"Press 'U' to activate bot",12,function(r)
+ if not bot.on then return end
+ bot.act=not bot.act
+ r.Text=bot.act and "Bot: ACTIVE (U to stop)" or "Press 'U' to activate bot"
+end)
+info(tF,"Bot reacts to Players & NPCs",13)
+tog(tF,"Use Abilities (E,Q,R)",14,function(s) bot.ab=s end)
+sld(tF,"Target Radius",15,50,1500,500,"studs",function(v) bot.r=v end)
+sld(tF,"Attack Distance",16,5,100,30,"studs",function(v) bot.d=v end)
 
-    elseif state == "success" then
-        TopBar.BackgroundColor3 = C.GREEN
-        StatusPillText.Text = "ACCESS GRANTED"
-        StatusPillText.TextColor3 = C.GREEN
-        StatusPillStroke.Color = C.GREEN
-        Title.Text = "Access unlocked"
-        Sub.Text = "Loading " .. GAME_NAME .. "..."
-        StatusLabel.Text = msg or "Welcome!"; StatusLabel.TextColor3 = C.GREEN
-        toast("Key valid! Loading script...", true)
-        tw(GKWrap,      {BackgroundTransparency=1}, 0.2)
-        tw(GetKeyBtn,   {BackgroundTransparency=1, TextTransparency=1}, 0.2)
-        tw(ActivateWrap,{BackgroundTransparency=1}, 0.2)
-        tw(ActivateBtn, {BackgroundTransparency=1, TextTransparency=1}, 0.2)
-        tw(InputWrap,   {BackgroundTransparency=1}, 0.2)
-        tw(InputField,  {TextTransparency=1}, 0.2)
-        task.delay(1.5, function()
-            tw(Card, {BackgroundTransparency=1, Position=UDim2.new(0.5,-W/2,0.5,-H/2-20)}, 0.3)
-            task.delay(0.35, function() Gui:Destroy() end)
-        end)
+tog(tE,"Enable ESP",1,function(s) espOn=s refE() end)
+tog(tE,"Show NPCs (Gray)",2,function(s) espNPC=s refE() end)
+info(tE,"Players: Dark Blue",3)
+info(tE,"NPCs: Gray (Model Name)",4)
+info(tE,"Special Players: Red (list at top of script)",5)
 
-    elseif state == "error" then
-        TopBar.BackgroundColor3 = C.RED
-        StatusPillText.Text = "ACCESS LOCKED"
-        StatusPillText.TextColor3 = C.RED
-        StatusPillStroke.Color = C.RED
-        Title.Text = "Access unavailable"
-        Sub.Text = msg or "Invalid or expired key"
-        local keyProblem = msg and (msg:find("Invalid") or msg:find("expired") or msg:find("another") or msg:find("format"))
-        StatusLabel.Text = keyProblem and "Copy the link to obtain a new key" or "Please try again in a moment"
-        StatusLabel.TextColor3 = C.RED
-        ActivateBtn.Text = "Verify"
-        tw(ActivateBtn, {BackgroundTransparency=0, TextTransparency=0}, 0.2)
-        refreshActions()
-        toast(msg or "Unable to unlock this script.", false)
-    end
-end
+task.spawn(function()
+ while true do
+  task.wait(2)
+  if espOn then refE() end
+ end
+end)
 
-local function validateToken()
-    local token = InputField.Text:match("^%s*(.-)%s*$"):upper()
-    if token == "" then
-        setState("error", "Please enter a key first")
-        return
-    end
-    if not token:match("^KEY%-[A-Z2-9][A-Z2-9][A-Z2-9][A-Z2-9]%-[A-Z2-9][A-Z2-9][A-Z2-9][A-Z2-9]%-[A-Z2-9][A-Z2-9][A-Z2-9][A-Z2-9]%-[A-Z2-9][A-Z2-9][A-Z2-9][A-Z2-9]$") then
-        setState("error", "Key format is not valid")
-        return
-    end
-    InputField.Text = token
-    setState("loading")
-    ActivateBtn.Text = "Checking..."
-    task.spawn(function()
-        local hwid = tostring(LocalPlayer.UserId)
-        local srcUrl = GATEWAY_URL .. "?game_id=" .. urlEncode(GAME_ID)
-            .. "&key=" .. urlEncode(token)
-            .. "&hwid=" .. urlEncode(hwid)
-            .. "&executor=" .. urlEncode(executorName())
-        if SESSION_ID ~= "" then srcUrl = srcUrl .. "&session_id=" .. urlEncode(SESSION_ID) end
-        if VARIANT_ID ~= "" then srcUrl = srcUrl .. "&variant_id=" .. urlEncode(VARIANT_ID) end
+UIS.InputBegan:Connect(function(i,pr)
+ if pr then return end
+ if i.KeyCode==vKey and voidOn then task.spawn(vKill) end
+ if i.KeyCode==Enum.KeyCode.U and bot.on then
+  bot.act=not bot.act
+  if bStat then bStat.Text=bot.act and "Bot: ACTIVE (U to stop)" or "Press 'U' to activate bot" end
+ end
+ if i.KeyCode==Enum.KeyCode.RightControl then Gui.Enabled=not Gui.Enabled end
+end)
 
-        local ok, code = pcall(function() return httpGet(srcUrl) end)
-        local response = code and tostring(code) or ""
-        local denied = response:find("%[KeySys%] Access Denied") ~= nil
-        if ok and code and not denied then
-            if type(loadstring) ~= "function" then
-                setState("error", "This executor cannot load scripts")
-                return
-            end
-            getgenv().KEY = token
-            setState("success", "Access Granted!")
-            task.delay(0.5, function()
-                local lok, lerr = pcall(function() loadstring(code)() end)
-                if not lok then warn("[Script Error] " .. tostring(lerr)) end
-            end)
-        else
-            local errorMessage = "Could not reach Keyify"
-            if ok and response:find("locked to another device", 1, true) then
-                errorMessage = "Key is linked to another Roblox account"
-            elseif ok and response:find("Invalid or expired token", 1, true) then
-                errorMessage = "Invalid or expired key"
-            elseif ok and response:find("Target script not registered", 1, true) then
-                errorMessage = "Script source is not available yet"
-            elseif ok and response:find("Failed to fetch original script", 1, true) then
-                errorMessage = "Script source is temporarily unavailable"
-            end
-            if SESSION_ID ~= "" then
-                pcall(function()
-                    httpGet(BASE_URL .. "/api/session/fail?session_id=" .. urlEncode(SESSION_ID) .. "&reason=" .. urlEncode(errorMessage))
-                end)
-            end
-            setState("error", errorMessage)
-        end
-    end)
-end
+X.MouseButton1Click:Connect(function()
+ h1.on=false h2.on=false rest()
+ espOn=false clearE()
+ noCD=false bot.on=false bot.act=false
+ Gui:Destroy()
+end)
 
-ActivateBtn.MouseButton1Click:Connect(validateToken)
+pills["Hitbox"].BackgroundColor3=rgb(40,46,54)
+pills["Hitbox"].TextColor3=C.WH
+pages["Hitbox"].Visible=true
 
-if getgenv().KEY and tostring(getgenv().KEY) ~= "" and tostring(getgenv().KEY) ~= "nil" then
-    task.spawn(function()
-        task.wait(0.5)
-        InputField.Text = tostring(getgenv().KEY)
-        validateToken()
-    end)
-end
+print("[SEMYON HUB V1.7] Loaded OK!")
+
+end)
+
+if not ok then warn("[SEMYON HUB] FATAL: "..tostring(err)) fatal(err) end
